@@ -25,13 +25,21 @@ The plugin is designed for situations where staff need to randomise whole quiz v
 
 ## Screenshots
 
-![Teacher dashboard overview](docs/screenshots/01-teacher-dashboard-overview.png)
+![Teacher dashboard full page](docs/screenshots/01-teacher-dashboard-full-page.png)
 
-![Variant readiness and shared settings](docs/screenshots/02-variant-readiness-and-settings.png)
+![Staff action panel](docs/screenshots/02-staff-action-panel.png)
 
-![Allocation management](docs/screenshots/03-allocation-management.png)
+![Gradebook helper](docs/screenshots/03-gradebook-helper-detail.png)
 
-![Student launch screen](docs/screenshots/04-student-launch-screen.png)
+![Variant readiness detail](docs/screenshots/04-variant-readiness-detail.png)
+
+![Allocation report](docs/screenshots/05-allocation-report-detail.png)
+
+![Manual allocation tools](docs/screenshots/06-manual-allocation-tools.png)
+
+![Teacher settings variant selector](docs/screenshots/07-teacher-settings-variant-selector.png)
+
+![Student launch screen](docs/screenshots/08-student-launch-screen-full-page.png)
 
 ## Recommended Course Setup
 
