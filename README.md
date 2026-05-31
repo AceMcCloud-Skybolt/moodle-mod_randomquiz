@@ -23,6 +23,16 @@ The plugin is designed for situations where staff need to randomise whole quiz v
 - Manually assign or change a student allocation before they start an attempt.
 - Basic Moodle backup/restore support for instances, variants and allocations when the referenced quiz activities are included in the same restore.
 
+## Screenshots
+
+![Teacher dashboard overview](docs/screenshots/01-teacher-dashboard-overview.png)
+
+![Variant readiness and shared settings](docs/screenshots/02-variant-readiness-and-settings.png)
+
+![Allocation management](docs/screenshots/03-allocation-management.png)
+
+![Student launch screen](docs/screenshots/04-student-launch-screen.png)
+
 ## Recommended Course Setup
 
 1. Create the individual Moodle quizzes that should act as variants.
