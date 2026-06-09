@@ -6,6 +6,10 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
 
 function randomquiz_supports($feature) {
+    if (defined('FEATURE_MOD_OTHERPURPOSE') && $feature === FEATURE_MOD_OTHERPURPOSE) {
+        return MOD_PURPOSE_ADMINISTRATION;
+    }
+
     switch ($feature) {
         case FEATURE_MOD_ARCHETYPE:
             return MOD_ARCHETYPE_OTHER;

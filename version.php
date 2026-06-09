@@ -4,7 +4,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_randomquiz';
-$plugin->version = 2026053103;
+$plugin->version = 2026060900;
 $plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.0';
+$plugin->release = '0.1.1';

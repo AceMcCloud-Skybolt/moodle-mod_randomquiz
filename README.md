@@ -51,6 +51,18 @@ The plugin is designed for situations where staff need to randomise whole quiz v
 6. Use **Match settings from Variant A** to align shared quiz settings.
 7. Use **Create/check grade category** to place variant quiz grade items into a Highest grade category.
 
+## Moodle 5.1 Notes
+
+Moodle 5.1 moved web-facing plugin code into the `public` directory. On Moodle 5.1+, install this activity at:
+
+`public/mod/randomquiz`
+
+For Moodle 4.5-style layouts, install it at:
+
+`mod/randomquiz`
+
+The plugin declares `FEATURE_MOD_PURPOSE` as Assessment and, on Moodle versions that support it, declares Administration as a secondary activity purpose.
+
 ## Notes
 
 - The allocator does not replace Moodle quiz attempts. It only chooses which Moodle quiz a student receives.
