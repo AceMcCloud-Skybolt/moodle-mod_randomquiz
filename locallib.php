@@ -281,6 +281,7 @@ function randomquiz_match_settings_from_first_variant(int $randomquizid): array 
     global $DB, $CFG;
 
     require_once($CFG->dirroot . '/mod/quiz/lib.php');
+    randomquiz_require_manage_variant_quizzes($randomquizid);
 
     $variants = array_values(randomquiz_get_variant_details($randomquizid));
     if (count($variants) < 2) {
@@ -319,6 +320,49 @@ function randomquiz_match_settings_from_first_variant(int $randomquizid): array 
 }
 
 /**
+ * Check whether the current user can manage every linked quiz variant.
+ *
+ * @param int $randomquizid
+ * @return bool
+ */
+function randomquiz_can_manage_variant_quizzes(int $randomquizid): bool {
+    foreach (randomquiz_get_variant_details($randomquizid) as $variant) {
+        if (!has_capability('mod/quiz:manage', \context_module::instance($variant->quizcmid))) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Require quiz management capability on every linked quiz variant.
+ *
+ * @param int $randomquizid
+ * @return void
+ */
+function randomquiz_require_manage_variant_quizzes(int $randomquizid): void {
+    foreach (randomquiz_get_variant_details($randomquizid) as $variant) {
+        require_capability('mod/quiz:manage', \context_module::instance($variant->quizcmid));
+    }
+}
+
+/**
+ * Get variants that are enabled and launchable by students.
+ *
+ * Variants may be hidden from the course page, but they must not be fully hidden
+ * from students or the redirect into Moodle Quiz will fail.
+ *
+ * @param int $randomquizid
+ * @return array
+ */
+function randomquiz_get_launchable_variants(int $randomquizid): array {
+    return array_values(array_filter(randomquiz_get_variant_details($randomquizid), function($variant): bool {
+        return (int)$variant->enabled === 1 && (int)$variant->visible === 1;
+    }));
+}
+
+/**
  * Return an existing allocation, or create one for the user.
  *
  * @param stdClass $randomquiz
@@ -328,17 +372,23 @@ function randomquiz_match_settings_from_first_variant(int $randomquizid): array 
 function randomquiz_get_or_create_allocation(stdClass $randomquiz, int $userid): stdClass {
     global $DB;
 
+    $variants = randomquiz_get_launchable_variants((int)$randomquiz->id);
+    $launchablecmids = array_map(fn($variant) => (int)$variant->quizcmid, $variants);
+
     $existing = $DB->get_record('randomquiz_allocations', [
         'randomquizid' => $randomquiz->id,
         'userid' => $userid,
     ]);
     if ($existing) {
-        return $existing;
+        if (in_array((int)$existing->quizcmid, $launchablecmids, true) ||
+                randomquiz_count_allocation_attempts($existing) > 0) {
+            return $existing;
+        }
+        $DB->delete_records('randomquiz_allocations', ['id' => $existing->id]);
     }
 
-    $variants = array_values(array_filter(randomquiz_get_variant_details((int)$randomquiz->id), fn($variant) => (int)$variant->enabled === 1));
     if (!$variants) {
-        throw new moodle_exception('novariants', 'randomquiz');
+        throw new moodle_exception('nolaunchablevariants', 'randomquiz');
     }
 
     $chosen = randomquiz_choose_variant($randomquiz, $variants);
@@ -418,6 +468,22 @@ function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int
         throw new moodle_exception('invalidcoursemodule');
     }
 
+    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*');
+    if (!$user || !empty($user->suspended)) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+
+    $coursecontext = \context_course::instance($randomquiz->course);
+    if (!is_enrolled($coursecontext, $user, '', true)) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+
+    $quizcm = get_coursemodule_from_id('quiz', $quizcmid, 0, false, MUST_EXIST);
+    if ((int)$quizcm->course !== (int)$randomquiz->course || !(int)$quizcm->visible ||
+            !has_capability('mod/quiz:attempt', \context_module::instance($quizcmid), $userid)) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+
     $existing = $DB->get_record('randomquiz_allocations', [
         'randomquizid' => $randomquiz->id,
         'userid' => $userid,
@@ -440,7 +506,6 @@ function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int
         ]);
     }
 
-    $user = $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
     return fullname($user);
 }
 

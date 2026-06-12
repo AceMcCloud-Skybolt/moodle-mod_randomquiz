@@ -45,6 +45,8 @@ The plugin is designed for situations where staff need to randomise whole quiz v
 
 For the concept, requirements, use cases and developer questions, see [Random Quiz Allocator Product Brief](docs/random-quiz-allocator-product-brief.md).
 
+For the response to the June 2026 external security review, see [Security Review Response](docs/security-review-response-2026-06-12.md).
+
 ## Recommended Course Setup
 
 1. Create the individual Moodle quizzes that should act as variants.

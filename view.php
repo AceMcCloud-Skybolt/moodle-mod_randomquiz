@@ -17,6 +17,7 @@ if ($id) {
 
 $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
 $context = context_module::instance($cm->id);
+$coursecontext = context_course::instance($course->id);
 
 require_login($course, true, $cm);
 require_capability('mod/randomquiz:view', $context);
@@ -30,11 +31,10 @@ $canmanage = has_capability('mod/randomquiz:manage', $context);
 $action = optional_param('action', '', PARAM_ALPHA);
 
 if (!$canmanage) {
-    $allocation = randomquiz_get_or_create_allocation($randomquiz, (int)$USER->id);
-    $quizurl = new moodle_url('/mod/quiz/view.php', ['id' => $allocation->quizcmid]);
-
     if ($action === 'startquiz') {
         require_sesskey();
+        $allocation = randomquiz_get_or_create_allocation($randomquiz, (int)$USER->id);
+        $quizurl = new moodle_url('/mod/quiz/view.php', ['id' => $allocation->quizcmid]);
         redirect($quizurl);
     }
 
@@ -59,6 +59,7 @@ if (!$canmanage) {
 if ($action === 'syncsettings') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
+    randomquiz_require_manage_variant_quizzes((int)$randomquiz->id);
     $result = randomquiz_match_settings_from_first_variant((int)$randomquiz->id);
     if ($result['count'] > 0) {
         redirect($PAGE->url, get_string('settingsmatchedcount', 'randomquiz', (object)$result), null,
@@ -69,6 +70,7 @@ if ($action === 'syncsettings') {
 } else if ($action === 'gradebooksetup') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
+    require_capability('moodle/grade:manage', $coursecontext);
     $result = randomquiz_setup_gradebook_category($randomquiz, (int)$course->id);
     redirect($PAGE->url, get_string('gradebooksetupdone', 'randomquiz', (object)$result), null,
         \core\output\notification::NOTIFY_SUCCESS);
@@ -111,21 +113,25 @@ echo html_writer::end_div();
 echo html_writer::end_div();
 
 if (count($variants) > 1) {
-    $syncurl = new moodle_url('/mod/randomquiz/view.php', [
-        'id' => $cm->id,
-        'action' => 'syncsettings',
-    ]);
-    echo html_writer::start_tag('form', [
-        'method' => 'post',
-        'action' => $syncurl->out(false),
-        'class' => 'mb-3',
-    ]);
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-    echo html_writer::tag('button', get_string('matchsettings', 'randomquiz'), [
-        'type' => 'submit',
-        'class' => 'btn btn-outline-secondary',
-    ]);
-    echo html_writer::end_tag('form');
+    if (randomquiz_can_manage_variant_quizzes((int)$randomquiz->id)) {
+        $syncurl = new moodle_url('/mod/randomquiz/view.php', [
+            'id' => $cm->id,
+            'action' => 'syncsettings',
+        ]);
+        echo html_writer::start_tag('form', [
+            'method' => 'post',
+            'action' => $syncurl->out(false),
+            'class' => 'mb-3',
+        ]);
+        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+        echo html_writer::tag('button', get_string('matchsettings', 'randomquiz'), [
+            'type' => 'submit',
+            'class' => 'btn btn-outline-secondary',
+        ]);
+        echo html_writer::end_tag('form');
+    } else {
+        echo $OUTPUT->notification(get_string('variantquizmanagepermissionrequired', 'randomquiz'), 'warning');
+    }
 }
 
 $gradebookstatus = randomquiz_get_gradebook_status($randomquiz, (int)$course->id);
@@ -136,20 +142,24 @@ foreach ($gradebookstatus['messages'] as [$state, $message]) {
     echo html_writer::span($message, 'badge rounded-pill ' . randomquiz_badge_class($state) . ' me-1 mb-1');
 }
 echo html_writer::end_div();
-$gradebookurl = new moodle_url('/mod/randomquiz/view.php', [
-    'id' => $cm->id,
-    'action' => 'gradebooksetup',
-]);
-echo html_writer::start_tag('form', [
-    'method' => 'post',
-    'action' => $gradebookurl->out(false),
-]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-echo html_writer::tag('button', get_string('gradebooksetup', 'randomquiz'), [
-    'type' => 'submit',
-    'class' => 'btn btn-outline-secondary',
-]);
-echo html_writer::end_tag('form');
+if (has_capability('moodle/grade:manage', $coursecontext)) {
+    $gradebookurl = new moodle_url('/mod/randomquiz/view.php', [
+        'id' => $cm->id,
+        'action' => 'gradebooksetup',
+    ]);
+    echo html_writer::start_tag('form', [
+        'method' => 'post',
+        'action' => $gradebookurl->out(false),
+    ]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+    echo html_writer::tag('button', get_string('gradebooksetup', 'randomquiz'), [
+        'type' => 'submit',
+        'class' => 'btn btn-outline-secondary',
+    ]);
+    echo html_writer::end_tag('form');
+} else {
+    echo html_writer::tag('p', get_string('gradebookmanagepermissionrequired', 'randomquiz'), ['class' => 'text-muted mb-0']);
+}
 echo html_writer::end_div();
 
 if (!$variants) {
