@@ -1,5 +1,26 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * View page for the random quiz allocator activity.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 require(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
@@ -34,6 +55,14 @@ if (!$canmanage) {
     if ($action === 'startquiz') {
         require_sesskey();
         $allocation = randomquiz_get_or_create_allocation($randomquiz, (int)$USER->id);
+        if (!randomquiz_allocation_is_launchable($allocation, (int)$USER->id)) {
+            echo $OUTPUT->header();
+            echo $OUTPUT->notification(get_string('allocationunavailable', 'randomquiz'), 'warning');
+            echo html_writer::link($PAGE->url, get_string('backtoactivity', 'randomquiz'), ['class' => 'btn btn-secondary']);
+            echo $OUTPUT->footer();
+            exit;
+        }
+        randomquiz_trigger_assigned_quiz_launched($randomquiz, $allocation);
         $quizurl = new moodle_url('/mod/quiz/view.php', ['id' => $allocation->quizcmid]);
         redirect($quizurl);
     }
@@ -61,6 +90,15 @@ if ($action === 'syncsettings') {
     require_capability('mod/randomquiz:manage', $context);
     randomquiz_require_manage_variant_quizzes((int)$randomquiz->id);
     $result = randomquiz_match_settings_from_first_variant((int)$randomquiz->id);
+    \mod_randomquiz\event\settings_synced::create([
+        'objectid' => (int)$randomquiz->id,
+        'context' => $context,
+        'other' => [
+            'randomquizid' => (int)$randomquiz->id,
+            'source' => $result['source'],
+            'count' => (int)$result['count'],
+        ],
+    ])->trigger();
     if ($result['count'] > 0) {
         redirect($PAGE->url, get_string('settingsmatchedcount', 'randomquiz', (object)$result), null,
             \core\output\notification::NOTIFY_SUCCESS);
@@ -72,6 +110,15 @@ if ($action === 'syncsettings') {
     require_capability('mod/randomquiz:manage', $context);
     require_capability('moodle/grade:manage', $coursecontext);
     $result = randomquiz_setup_gradebook_category($randomquiz, (int)$course->id);
+    \mod_randomquiz\event\gradebook_setup_completed::create([
+        'objectid' => (int)$randomquiz->id,
+        'context' => $context,
+        'other' => [
+            'randomquizid' => (int)$randomquiz->id,
+            'category' => $result['category'],
+            'count' => (int)$result['count'],
+        ],
+    ])->trigger();
     redirect($PAGE->url, get_string('gradebooksetupdone', 'randomquiz', (object)$result), null,
         \core\output\notification::NOTIFY_SUCCESS);
 } else if ($action === 'resetallocation') {
@@ -100,15 +147,13 @@ echo html_writer::start_div('container-fluid p-0');
 echo html_writer::start_div('p-4 mb-4 border rounded bg-light');
 echo html_writer::tag('p', get_string('pluginname', 'randomquiz'), ['class' => 'text-uppercase text-muted small mb-1']);
 echo html_writer::tag('h3', get_string('teacherdashboard', 'randomquiz'), ['class' => 'mb-2']);
-echo html_writer::tag('p',
-    'Students see this one activity. On first launch Moodle stores their allocation and redirects them to the assigned quiz variant.',
-    ['class' => 'mb-3']);
+echo html_writer::tag('p', get_string('teacherdashboardintro', 'randomquiz'), ['class' => 'mb-3']);
 echo html_writer::start_div('d-flex flex-wrap gap-2');
 echo html_writer::span(get_string('allocationmode:' . $randomquiz->allocationmode, 'randomquiz'),
     'badge rounded-pill text-bg-primary');
-echo html_writer::span('Locks on first launch', 'badge rounded-pill text-bg-secondary');
-echo html_writer::span('Uses normal Moodle quizzes', 'badge rounded-pill text-bg-secondary');
-echo html_writer::span('Gradebook: highest grade category', 'badge rounded-pill text-bg-secondary');
+echo html_writer::span(get_string('badgelocksonlaunch', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
+echo html_writer::span(get_string('badgeusesmoodlequizzes', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
+echo html_writer::span(get_string('badgehighestgradecategory', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
 echo html_writer::end_div();
 echo html_writer::end_div();
 
@@ -166,7 +211,12 @@ if (!$variants) {
     echo $OUTPUT->notification(get_string('novariants', 'randomquiz'), 'warning');
 } else {
     $table = new html_table();
-    $table->head = ['Variant', 'Quiz shell', 'Readiness checks', 'Shared settings'];
+    $table->head = [
+        get_string('variant', 'randomquiz'),
+        get_string('quizshell', 'randomquiz'),
+        get_string('readinesschecks', 'randomquiz'),
+        get_string('sharedsettings', 'randomquiz'),
+    ];
     $table->attributes['class'] = 'table table-sm table-bordered align-middle';
 
     foreach ($variants as $index => $variant) {
@@ -179,13 +229,15 @@ if (!$variants) {
         $settings = [
             get_string('timelimit', 'quiz') . ': ' . format_time((int)$variant->timelimit),
             get_string('attemptsallowed', 'quiz') . ': ' . ((int)$variant->attempts === 0 ? get_string('unlimited') : (int)$variant->attempts),
-            'Navigation: ' . ($variant->navmethod === 'sequential' ? 'Sequential' : 'Free'),
+            get_string('navigation', 'randomquiz') . ': ' .
+                ($variant->navmethod === 'sequential' ? get_string('navigationsequential', 'randomquiz') :
+                    get_string('navigationfree', 'randomquiz')),
             get_string('grademax', 'grades') . ': ' . format_float($variant->grade, 2),
         ];
 
         $quizurl = new moodle_url('/mod/quiz/view.php', ['id' => $variant->quizcmid]);
         $table->data[] = [
-            'Variant ' . chr(65 + $index),
+            get_string('variantlabel', 'randomquiz', chr(65 + $index)),
             html_writer::link($quizurl, format_string($variant->quizname)),
             implode(' ', $badges),
             implode(html_writer::empty_tag('br'), $settings),
@@ -194,10 +246,7 @@ if (!$variants) {
     echo html_writer::table($table);
 }
 
-echo $OUTPUT->notification(
-    'MVP note: the gradebook helper creates a highest-grade category for the variant quiz grade items. Review the gradebook if your course already uses a complex grading structure.',
-    'info'
-);
+echo $OUTPUT->notification(get_string('gradebookmvpnote', 'randomquiz'), 'info');
 
 $allocations = randomquiz_get_allocations((int)$randomquiz->id);
 echo $OUTPUT->heading(get_string('allocations', 'randomquiz'), 3);
@@ -205,7 +254,13 @@ if (!$allocations) {
     echo html_writer::tag('p', get_string('noallocations', 'randomquiz'), ['class' => 'text-muted']);
 } else {
     $allocationtable = new html_table();
-    $allocationtable->head = ['Student', 'Allocated quiz', 'Attempt status', 'Time', 'Actions'];
+    $allocationtable->head = [
+        get_string('student', 'randomquiz'),
+        get_string('allocatedquiz', 'randomquiz'),
+        get_string('attemptstatus', 'randomquiz'),
+        get_string('time'),
+        get_string('actions'),
+    ];
     $allocationtable->attributes['class'] = 'table table-sm table-striped';
     foreach ($allocations as $allocation) {
         $attemptcount = randomquiz_count_allocation_attempts($allocation);

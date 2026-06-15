@@ -1,5 +1,26 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Local library for the random quiz allocator activity.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -363,6 +384,17 @@ function randomquiz_get_launchable_variants(int $randomquizid): array {
 }
 
 /**
+ * Get the module context for a random quiz allocator instance.
+ *
+ * @param int $randomquizid
+ * @return context_module
+ */
+function randomquiz_get_module_context(int $randomquizid): context_module {
+    $cm = get_coursemodule_from_instance('randomquiz', $randomquizid, 0, false, MUST_EXIST);
+    return context_module::instance($cm->id);
+}
+
+/**
  * Return an existing allocation, or create one for the user.
  *
  * @param stdClass $randomquiz
@@ -370,6 +402,28 @@ function randomquiz_get_launchable_variants(int $randomquizid): array {
  * @return stdClass
  */
 function randomquiz_get_or_create_allocation(stdClass $randomquiz, int $userid): stdClass {
+    $lockfactory = \core\lock\lock_config::get_lock_factory('mod_randomquiz_allocation');
+    $allocationlock = $lockfactory->get_lock('randomquiz:' . (int)$randomquiz->id, 10, MINSECS);
+
+    if (!$allocationlock) {
+        throw new moodle_exception('allocationlocktimeout', 'randomquiz');
+    }
+
+    try {
+        return randomquiz_get_or_create_allocation_locked($randomquiz, $userid);
+    } finally {
+        $allocationlock->release();
+    }
+}
+
+/**
+ * Return or create an allocation while the activity allocation lock is held.
+ *
+ * @param stdClass $randomquiz
+ * @param int $userid
+ * @return stdClass
+ */
+function randomquiz_get_or_create_allocation_locked(stdClass $randomquiz, int $userid): stdClass {
     global $DB;
 
     $variants = randomquiz_get_launchable_variants((int)$randomquiz->id);
@@ -400,7 +454,52 @@ function randomquiz_get_or_create_allocation(stdClass $randomquiz, int $userid):
     ];
     $allocation->id = $DB->insert_record('randomquiz_allocations', $allocation);
 
+    \mod_randomquiz\event\allocation_created::create([
+        'objectid' => $allocation->id,
+        'context' => randomquiz_get_module_context((int)$randomquiz->id),
+        'relateduserid' => $userid,
+        'other' => [
+            'randomquizid' => (int)$randomquiz->id,
+            'quizcmid' => (int)$allocation->quizcmid,
+        ],
+    ])->trigger();
+
     return $allocation;
+}
+
+/**
+ * Check whether an existing allocation can still be launched by the student.
+ *
+ * @param stdClass $allocation
+ * @param int $userid
+ * @return bool
+ */
+function randomquiz_allocation_is_launchable(stdClass $allocation, int $userid): bool {
+    $cm = get_coursemodule_from_id('quiz', (int)$allocation->quizcmid, 0, false, IGNORE_MISSING);
+    if (!$cm || !(int)$cm->visible) {
+        return false;
+    }
+
+    return has_capability('mod/quiz:attempt', context_module::instance($cm->id), $userid);
+}
+
+/**
+ * Record that a student launched their assigned quiz.
+ *
+ * @param stdClass $randomquiz
+ * @param stdClass $allocation
+ * @return void
+ */
+function randomquiz_trigger_assigned_quiz_launched(stdClass $randomquiz, stdClass $allocation): void {
+    \mod_randomquiz\event\assigned_quiz_launched::create([
+        'objectid' => (int)$allocation->id,
+        'context' => randomquiz_get_module_context((int)$randomquiz->id),
+        'relateduserid' => (int)$allocation->userid,
+        'other' => [
+            'randomquizid' => (int)$randomquiz->id,
+            'quizcmid' => (int)$allocation->quizcmid,
+        ],
+    ])->trigger();
 }
 
 /**
@@ -449,6 +548,16 @@ function randomquiz_reset_allocation_if_unattempted(int $randomquizid, int $allo
     $user = $DB->get_record('user', ['id' => $allocation->userid], '*', MUST_EXIST);
     $DB->delete_records('randomquiz_allocations', ['id' => $allocation->id]);
 
+    \mod_randomquiz\event\allocation_reset::create([
+        'objectid' => (int)$allocation->id,
+        'context' => randomquiz_get_module_context($randomquizid),
+        'relateduserid' => (int)$allocation->userid,
+        'other' => [
+            'randomquizid' => $randomquizid,
+            'quizcmid' => (int)$allocation->quizcmid,
+        ],
+    ])->trigger();
+
     return fullname($user);
 }
 
@@ -492,19 +601,32 @@ function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int
         throw new moodle_exception('manualallocationblocked', 'randomquiz');
     }
 
+    $previousquizcmid = $existing ? (int)$existing->quizcmid : 0;
     $now = time();
     if ($existing) {
         $existing->quizcmid = $quizcmid;
         $existing->timeallocated = $now;
         $DB->update_record('randomquiz_allocations', $existing);
+        $allocationid = (int)$existing->id;
     } else {
-        $DB->insert_record('randomquiz_allocations', (object) [
+        $allocationid = $DB->insert_record('randomquiz_allocations', (object) [
             'randomquizid' => $randomquiz->id,
             'userid' => $userid,
             'quizcmid' => $quizcmid,
             'timeallocated' => $now,
         ]);
     }
+
+    \mod_randomquiz\event\manual_allocation_updated::create([
+        'objectid' => $allocationid,
+        'context' => randomquiz_get_module_context((int)$randomquiz->id),
+        'relateduserid' => $userid,
+        'other' => [
+            'randomquizid' => (int)$randomquiz->id,
+            'quizcmid' => $quizcmid,
+            'previousquizcmid' => $previousquizcmid,
+        ],
+    ])->trigger();
 
     return fullname($user);
 }
