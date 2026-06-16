@@ -83,6 +83,19 @@ class restore_randomquiz_activity_structure_step extends restore_activity_struct
     }
 
     protected function after_execute() {
+        global $DB;
+
+        $randomquizid = $this->get_new_parentid('randomquiz');
+        $variantcount = $DB->count_records('randomquiz_variants', ['randomquizid' => $randomquizid]);
+        if ($variantcount < 2) {
+            $randomquiz = $DB->get_record('randomquiz', ['id' => $randomquizid], 'id, name');
+            $name = $randomquiz ? format_string($randomquiz->name) : get_string('modulename', 'randomquiz');
+            $this->log(get_string('restoreinsufficientvariants', 'randomquiz', (object) [
+                'name' => $name,
+                'count' => $variantcount,
+            ]), backup::LOG_WARNING, null, null, true);
+        }
+
         $this->add_related_files('mod_randomquiz', 'intro', null);
     }
 }
