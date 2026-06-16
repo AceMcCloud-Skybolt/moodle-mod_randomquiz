@@ -22,10 +22,19 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Backup structure step for random quiz allocator instances.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class backup_randomquiz_activity_structure_step extends backup_activity_structure_step {
-
+    /**
+     * Define the backup structure.
+     *
+     * @return backup_nested_element
+     */
     protected function define_structure() {
         $userinfo = $this->get_setting_value('userinfo');
 

@@ -24,8 +24,6 @@
 
 namespace mod_randomquiz\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a teacher manually assigns or changes a quiz allocation.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class manual_allocation_updated extends \core\event\base {
-
     /**
      * Init method.
      *
@@ -84,8 +81,10 @@ class manual_allocation_updated extends \core\event\base {
         if (!isset($this->relateduserid)) {
             throw new \coding_exception('The \'relateduserid\' must be set.');
         }
-        if (!isset($this->other['randomquizid']) || !isset($this->other['quizcmid']) ||
-                !isset($this->other['previousquizcmid'])) {
+        if (
+            !isset($this->other['randomquizid']) || !isset($this->other['quizcmid']) ||
+                !isset($this->other['previousquizcmid'])
+        ) {
             throw new \coding_exception('The allocation quiz values must be set in other.');
         }
     }

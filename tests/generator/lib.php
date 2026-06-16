@@ -35,7 +35,6 @@ require_once($CFG->dirroot . '/mod/randomquiz/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mod_randomquiz_generator extends testing_module_generator {
-
     /**
      * Create a random quiz allocator instance.
      *

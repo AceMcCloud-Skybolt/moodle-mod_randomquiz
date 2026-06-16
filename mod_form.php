@@ -27,8 +27,17 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
 
+/**
+ * Activity settings form for random quiz allocator instances.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class mod_randomquiz_mod_form extends moodleform_mod {
-
+    /**
+     * Define the activity settings form.
+     */
     public function definition() {
         global $CFG, $COURSE;
 
@@ -59,8 +68,12 @@ class mod_randomquiz_mod_form extends moodleform_mod {
             $mform->addHelpButton('variantcmids', 'variantcmids', 'randomquiz');
             $mform->setType('variantcmids', PARAM_INT);
         } else {
-            $mform->addElement('static', 'variantcmidsnone', get_string('variantcmids', 'randomquiz'),
-                get_string('novariants', 'randomquiz'));
+            $mform->addElement(
+                'static',
+                'variantcmidsnone',
+                get_string('variantcmids', 'randomquiz'),
+                get_string('novariants', 'randomquiz')
+            );
         }
 
         $mform->addElement('select', 'allocationmode', get_string('allocationmode', 'randomquiz'), [
@@ -75,6 +88,11 @@ class mod_randomquiz_mod_form extends moodleform_mod {
         $this->add_action_buttons();
     }
 
+    /**
+     * Preprocess existing activity data for editing.
+     *
+     * @param array $defaultvalues
+     */
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
 
@@ -83,8 +101,15 @@ class mod_randomquiz_mod_form extends moodleform_mod {
         }
     }
 
+    /**
+     * Validate submitted activity settings.
+     *
+     * @param array $data
+     * @param array $files
+     * @return array
+     */
     public function validation($data, $files) {
-        global $COURSE, $DB;
+        global $COURSE;
 
         $errors = parent::validation($data, $files);
 

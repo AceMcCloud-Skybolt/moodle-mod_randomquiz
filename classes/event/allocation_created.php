@@ -24,8 +24,6 @@
 
 namespace mod_randomquiz\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a student receives a quiz allocation.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class allocation_created extends \core\event\base {
-
     /**
      * Init method.
      *

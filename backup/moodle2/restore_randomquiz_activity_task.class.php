@@ -26,21 +26,43 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/randomquiz/backup/moodle2/restore_randomquiz_stepslib.php');
 
+/**
+ * Restore activity task for random quiz allocator instances.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class restore_randomquiz_activity_task extends restore_activity_task {
-
+    /**
+     * Define restore settings for this activity.
+     */
     protected function define_my_settings() {
     }
 
+    /**
+     * Define restore steps for this activity.
+     */
     protected function define_my_steps() {
         $this->add_step(new restore_randomquiz_activity_structure_step('randomquiz_structure', 'randomquiz.xml'));
     }
 
+    /**
+     * Define content fields that need link decoding.
+     *
+     * @return array
+     */
     public static function define_decode_contents() {
         return [
             new restore_decode_content('randomquiz', ['intro'], 'randomquiz'),
         ];
     }
 
+    /**
+     * Define restore decode rules.
+     *
+     * @return array
+     */
     public static function define_decode_rules() {
         return [
             new restore_decode_rule('RANDOMQUIZVIEWBYID', '/mod/randomquiz/view.php?id=$1', 'course_module'),
@@ -48,6 +70,11 @@ class restore_randomquiz_activity_task extends restore_activity_task {
         ];
     }
 
+    /**
+     * Define restore log rules.
+     *
+     * @return array
+     */
     public static function define_restore_log_rules() {
         return [
             new restore_log_rule('randomquiz', 'add', 'view.php?id={course_module}', '{randomquiz}'),
@@ -56,6 +83,11 @@ class restore_randomquiz_activity_task extends restore_activity_task {
         ];
     }
 
+    /**
+     * Define course-level restore log rules.
+     *
+     * @return array
+     */
     public static function define_restore_log_rules_for_course() {
         return [
             new restore_log_rule('randomquiz', 'view all', 'index.php?id={course}', null),

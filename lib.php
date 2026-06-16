@@ -26,6 +26,12 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
 
+/**
+ * Declare supported Moodle module features.
+ *
+ * @param string $feature
+ * @return mixed
+ */
 function randomquiz_supports($feature) {
     if (defined('FEATURE_MOD_OTHERPURPOSE') && $feature === FEATURE_MOD_OTHERPURPOSE) {
         return MOD_PURPOSE_ADMINISTRATION;
@@ -49,9 +55,17 @@ function randomquiz_supports($feature) {
     }
 }
 
+/**
+ * Add a random quiz allocator instance.
+ *
+ * @param stdClass $data
+ * @param mod_randomquiz_mod_form|null $mform
+ * @return int
+ */
 function randomquiz_add_instance($data, $mform = null) {
     global $DB;
 
+    unset($mform);
     $data->timemodified = time();
     $data->allocationmode = $data->allocationmode ?? RANDOMQUIZ_ALLOC_BALANCED;
     $data->id = $DB->insert_record('randomquiz', $data);
@@ -60,9 +74,17 @@ function randomquiz_add_instance($data, $mform = null) {
     return $data->id;
 }
 
+/**
+ * Update a random quiz allocator instance.
+ *
+ * @param stdClass $data
+ * @param mod_randomquiz_mod_form|null $mform
+ * @return bool
+ */
 function randomquiz_update_instance($data, $mform = null) {
     global $DB;
 
+    unset($mform);
     $data->id = $data->instance;
     $data->timemodified = time();
     $data->allocationmode = $data->allocationmode ?? RANDOMQUIZ_ALLOC_BALANCED;
@@ -72,6 +94,12 @@ function randomquiz_update_instance($data, $mform = null) {
     return true;
 }
 
+/**
+ * Delete a random quiz allocator instance.
+ *
+ * @param int $id
+ * @return bool
+ */
 function randomquiz_delete_instance($id) {
     global $DB;
 
@@ -86,6 +114,12 @@ function randomquiz_delete_instance($id) {
     return true;
 }
 
+/**
+ * Return cached course module information.
+ *
+ * @param stdClass $coursemodule
+ * @return cached_cm_info|null
+ */
 function randomquiz_get_coursemodule_info($coursemodule) {
     global $DB;
 

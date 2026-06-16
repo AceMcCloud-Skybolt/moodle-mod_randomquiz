@@ -37,7 +37,6 @@ require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class locallib_test extends \advanced_testcase {
-
     /**
      * Create a course, student, two quiz variants and a random quiz allocator.
      *
@@ -286,7 +285,7 @@ final class locallib_test extends \advanced_testcase {
         set_coursemodule_visible($quiz1->cmid, 0);
         set_coursemodule_visible($quiz2->cmid, 0);
 
-        $this->assert_moodle_exception('nolaunchablevariants', function() use ($randomquiz, $student): void {
+        $this->assert_moodle_exception('nolaunchablevariants', function () use ($randomquiz, $student): void {
             randomquiz_get_or_create_allocation($randomquiz, $student->id);
         });
     }
@@ -339,7 +338,7 @@ final class locallib_test extends \advanced_testcase {
         $allocation = $this->create_allocation($randomquiz, $student, $quiz1);
         $this->create_quiz_attempt($student, $quiz1);
 
-        $this->assert_moodle_exception('allocationresetblocked', function() use ($randomquiz, $allocation): void {
+        $this->assert_moodle_exception('allocationresetblocked', function () use ($randomquiz, $allocation): void {
             randomquiz_reset_allocation_if_unattempted($randomquiz->id, $allocation->id);
         });
     }
@@ -374,7 +373,7 @@ final class locallib_test extends \advanced_testcase {
             'name' => 'Unlinked quiz',
         ]);
 
-        $this->assert_moodle_exception('invalidcoursemodule', function() use ($randomquiz, $student, $otherquiz): void {
+        $this->assert_moodle_exception('invalidcoursemodule', function () use ($randomquiz, $student, $otherquiz): void {
             randomquiz_set_manual_allocation($randomquiz, $student->id, $otherquiz->cmid);
         });
     }
@@ -390,7 +389,7 @@ final class locallib_test extends \advanced_testcase {
         $this->setUser($teacher);
         $DB->set_field('user', 'deleted', 1, ['id' => $student->id]);
 
-        $this->assert_moodle_exception('invalidallocationuser', function() use ($randomquiz, $student, $quiz2): void {
+        $this->assert_moodle_exception('invalidallocationuser', function () use ($randomquiz, $student, $quiz2): void {
             randomquiz_set_manual_allocation($randomquiz, $student->id, $quiz2->cmid);
         });
     }
@@ -406,7 +405,7 @@ final class locallib_test extends \advanced_testcase {
         $this->setUser($teacher);
         $DB->set_field('user', 'suspended', 1, ['id' => $student->id]);
 
-        $this->assert_moodle_exception('invalidallocationuser', function() use ($randomquiz, $student, $quiz2): void {
+        $this->assert_moodle_exception('invalidallocationuser', function () use ($randomquiz, $student, $quiz2): void {
             randomquiz_set_manual_allocation($randomquiz, $student->id, $quiz2->cmid);
         });
     }
@@ -420,7 +419,7 @@ final class locallib_test extends \advanced_testcase {
         $this->setUser($teacher);
         $outsider = $this->getDataGenerator()->create_user();
 
-        $this->assert_moodle_exception('invalidallocationuser', function() use ($randomquiz, $outsider, $quiz2): void {
+        $this->assert_moodle_exception('invalidallocationuser', function () use ($randomquiz, $outsider, $quiz2): void {
             randomquiz_set_manual_allocation($randomquiz, $outsider->id, $quiz2->cmid);
         });
     }
@@ -439,7 +438,7 @@ final class locallib_test extends \advanced_testcase {
         assign_capability('mod/quiz:attempt', CAP_PROHIBIT, $studentroleid, \context_module::instance($quiz2->cmid));
         accesslib_clear_all_caches_for_unit_testing();
 
-        $this->assert_moodle_exception('invalidallocationuser', function() use ($randomquiz, $student, $quiz2): void {
+        $this->assert_moodle_exception('invalidallocationuser', function () use ($randomquiz, $student, $quiz2): void {
             randomquiz_set_manual_allocation($randomquiz, $student->id, $quiz2->cmid);
         });
     }
@@ -454,7 +453,7 @@ final class locallib_test extends \advanced_testcase {
         $this->create_allocation($randomquiz, $student, $quiz1);
         $this->create_quiz_attempt($student, $quiz1);
 
-        $this->assert_moodle_exception('manualallocationblocked', function() use ($randomquiz, $student, $quiz2): void {
+        $this->assert_moodle_exception('manualallocationblocked', function () use ($randomquiz, $student, $quiz2): void {
             randomquiz_set_manual_allocation($randomquiz, $student->id, $quiz2->cmid);
         });
     }

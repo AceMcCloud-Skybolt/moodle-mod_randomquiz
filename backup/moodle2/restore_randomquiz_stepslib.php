@@ -22,10 +22,19 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Restore structure step for random quiz allocator instances.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class restore_randomquiz_activity_structure_step extends restore_activity_structure_step {
-
+    /**
+     * Define the restore structure.
+     *
+     * @return array
+     */
     protected function define_structure() {
         $paths = [];
         $userinfo = $this->get_setting_value('userinfo');
@@ -39,6 +48,11 @@ class restore_randomquiz_activity_structure_step extends restore_activity_struct
         return $this->prepare_activity_structure($paths);
     }
 
+    /**
+     * Restore the main random quiz allocator record.
+     *
+     * @param stdClass|array $data
+     */
     protected function process_randomquiz($data) {
         global $DB;
 
@@ -51,6 +65,11 @@ class restore_randomquiz_activity_structure_step extends restore_activity_struct
         $this->set_mapping('randomquiz', $oldid, $newitemid);
     }
 
+    /**
+     * Restore a linked quiz variant when its course module can be mapped.
+     *
+     * @param stdClass|array $data
+     */
     protected function process_randomquiz_variant($data) {
         global $DB;
 
@@ -67,6 +86,11 @@ class restore_randomquiz_activity_structure_step extends restore_activity_struct
         $this->set_mapping('randomquiz_variant', $oldid, $newitemid);
     }
 
+    /**
+     * Restore a student allocation when both the quiz and user can be mapped.
+     *
+     * @param stdClass|array $data
+     */
     protected function process_randomquiz_allocation($data) {
         global $DB;
 
@@ -82,6 +106,9 @@ class restore_randomquiz_activity_structure_step extends restore_activity_struct
         $DB->insert_record('randomquiz_allocations', $data);
     }
 
+    /**
+     * Add related files and warn if restore dropped linked variants.
+     */
     protected function after_execute() {
         global $DB;
 

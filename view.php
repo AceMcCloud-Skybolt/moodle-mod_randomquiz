@@ -100,11 +100,19 @@ if ($action === 'syncsettings') {
         ],
     ])->trigger();
     if ($result['count'] > 0) {
-        redirect($PAGE->url, get_string('settingsmatchedcount', 'randomquiz', (object)$result), null,
-            \core\output\notification::NOTIFY_SUCCESS);
+        redirect(
+            $PAGE->url,
+            get_string('settingsmatchedcount', 'randomquiz', (object)$result),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
     }
-    redirect($PAGE->url, get_string('settingsmatchnone', 'randomquiz'), null,
-        \core\output\notification::NOTIFY_WARNING);
+    redirect(
+        $PAGE->url,
+        get_string('settingsmatchnone', 'randomquiz'),
+        null,
+        \core\output\notification::NOTIFY_WARNING
+    );
 } else if ($action === 'gradebooksetup') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
@@ -119,23 +127,35 @@ if ($action === 'syncsettings') {
             'count' => (int)$result['count'],
         ],
     ])->trigger();
-    redirect($PAGE->url, get_string('gradebooksetupdone', 'randomquiz', (object)$result), null,
-        \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        $PAGE->url,
+        get_string('gradebooksetupdone', 'randomquiz', (object)$result),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 } else if ($action === 'resetallocation') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
     $allocationid = required_param('allocationid', PARAM_INT);
     $username = randomquiz_reset_allocation_if_unattempted((int)$randomquiz->id, $allocationid);
-    redirect($PAGE->url, get_string('allocationreset', 'randomquiz', $username), null,
-        \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        $PAGE->url,
+        get_string('allocationreset', 'randomquiz', $username),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 } else if ($action === 'manualallocation') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
     $userid = required_param('userid', PARAM_INT);
     $quizcmid = required_param('quizcmid', PARAM_INT);
     $username = randomquiz_set_manual_allocation($randomquiz, $userid, $quizcmid);
-    redirect($PAGE->url, get_string('allocationupdated', 'randomquiz', $username), null,
-        \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        $PAGE->url,
+        get_string('allocationupdated', 'randomquiz', $username),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 echo $OUTPUT->header();
@@ -149,8 +169,10 @@ echo html_writer::tag('p', get_string('pluginname', 'randomquiz'), ['class' => '
 echo html_writer::tag('h3', get_string('teacherdashboard', 'randomquiz'), ['class' => 'mb-2']);
 echo html_writer::tag('p', get_string('teacherdashboardintro', 'randomquiz'), ['class' => 'mb-3']);
 echo html_writer::start_div('d-flex flex-wrap gap-2');
-echo html_writer::span(get_string('allocationmode:' . $randomquiz->allocationmode, 'randomquiz'),
-    'badge rounded-pill text-bg-primary');
+echo html_writer::span(
+    get_string('allocationmode:' . $randomquiz->allocationmode, 'randomquiz'),
+    'badge rounded-pill text-bg-primary'
+);
 echo html_writer::span(get_string('badgelocksonlaunch', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
 echo html_writer::span(get_string('badgeusesmoodlequizzes', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
 echo html_writer::span(get_string('badgehighestgradecategory', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
@@ -228,7 +250,8 @@ if (!$variants) {
 
         $settings = [
             get_string('timelimit', 'quiz') . ': ' . format_time((int)$variant->timelimit),
-            get_string('attemptsallowed', 'quiz') . ': ' . ((int)$variant->attempts === 0 ? get_string('unlimited') : (int)$variant->attempts),
+            get_string('attemptsallowed', 'quiz') . ': ' .
+                ((int)$variant->attempts === 0 ? get_string('unlimited') : (int)$variant->attempts),
             get_string('navigation', 'randomquiz') . ': ' .
                 ($variant->navmethod === 'sequential' ? get_string('navigationsequential', 'randomquiz') :
                     get_string('navigationfree', 'randomquiz')),
@@ -298,7 +321,7 @@ if (!$allocations) {
     echo html_writer::table($allocationtable);
 }
 
-$useroptions = randomquiz_get_allocatable_user_options($course, $context);
+$useroptions = randomquiz_get_allocatable_user_options($course);
 $variantoptions = [];
 foreach ($variants as $variant) {
     $variantoptions[(int)$variant->quizcmid] = format_string($variant->quizname);

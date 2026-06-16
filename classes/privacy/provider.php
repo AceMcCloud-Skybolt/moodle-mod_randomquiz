@@ -33,13 +33,23 @@ use core_privacy\local\request\transform;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Privacy provider for random quiz allocator allocations.
+ *
+ * @package    mod_randomquiz
+ * @copyright  2026 Murdoch University
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class provider implements
-        \core_privacy\local\metadata\provider,
-        \core_privacy\local\request\plugin\provider,
-        \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\metadata\provider,
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
+    /**
+     * Describe stored personal data.
+     *
+     * @param collection $collection
+     * @return collection
+     */
     public static function get_metadata(collection $collection): collection {
         $collection->add_database_table('randomquiz_allocations', [
             'randomquizid' => 'privacy:metadata:allocations:randomquizid',
@@ -51,6 +61,12 @@ class provider implements
         return $collection;
     }
 
+    /**
+     * Get contexts containing data for a user.
+     *
+     * @param int $userid
+     * @return contextlist
+     */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
         $sql = "SELECT ctx.id
@@ -69,6 +85,11 @@ class provider implements
         return $contextlist;
     }
 
+    /**
+     * Add users with data in the supplied context.
+     *
+     * @param userlist $userlist
+     */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if (!$context instanceof \context_module) {
@@ -87,6 +108,11 @@ class provider implements
         ]);
     }
 
+    /**
+     * Export allocation data for approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -134,6 +160,11 @@ class provider implements
         }
     }
 
+    /**
+     * Delete all allocation data in the supplied context.
+     *
+     * @param \context $context
+     */
     public static function delete_data_for_all_users_in_context(\context $context): void {
         global $DB;
 
@@ -149,6 +180,11 @@ class provider implements
         $DB->delete_records('randomquiz_allocations', ['randomquizid' => $cm->instance]);
     }
 
+    /**
+     * Delete allocation data for one user.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -172,6 +208,11 @@ class provider implements
         }
     }
 
+    /**
+     * Delete allocation data for multiple approved users.
+     *
+     * @param approved_userlist $userlist
+     */
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
 
@@ -191,8 +232,10 @@ class provider implements
         }
 
         [$usersql, $userparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
-        $DB->delete_records_select('randomquiz_allocations',
+        $DB->delete_records_select(
+            'randomquiz_allocations',
             "randomquizid = :randomquizid AND userid {$usersql}",
-            ['randomquizid' => $cm->instance] + $userparams);
+            ['randomquizid' => $cm->instance] + $userparams
+        );
     }
 }

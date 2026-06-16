@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 define('RANDOMQUIZ_ALLOC_RANDOM', 'random');
 define('RANDOMQUIZ_ALLOC_BALANCED', 'balanced');
 
@@ -223,14 +221,7 @@ function randomquiz_get_gradebook_status(stdClass $randomquiz, int $courseid): a
         $messages[] = ['error', get_string('gradebookmissingitems', 'randomquiz')];
     }
 
-    $categoryids = array_values(array_unique(array_map(fn($item) => (int)$item->categoryid, $items)));
-    $category = null;
-    if (count($categoryids) === 1 && $categoryids[0] > 0) {
-        $category = grade_category::fetch(['id' => $categoryids[0], 'courseid' => $courseid]);
-    } else if ($items) {
-        $messages[] = ['warning', get_string('gradebooknocategory', 'randomquiz')];
-    }
-
+    $category = randomquiz_get_common_grade_category($items, $courseid, $messages);
     if ($category && (int)$category->aggregation !== GRADE_AGGREGATE_MAX) {
         $messages[] = ['warning', get_string('gradebookwrongaggregation', 'randomquiz')];
     }
@@ -246,6 +237,27 @@ function randomquiz_get_gradebook_status(stdClass $randomquiz, int $courseid): a
         'variantcount' => count($variants),
         'messages' => $messages,
     ];
+}
+
+/**
+ * Return the shared grade category for variant grade items.
+ *
+ * @param array $items
+ * @param int $courseid
+ * @param array $messages
+ * @return grade_category|null
+ */
+function randomquiz_get_common_grade_category(array $items, int $courseid, array &$messages): ?grade_category {
+    $categoryids = array_values(array_unique(array_map(fn($item) => (int)$item->categoryid, $items)));
+    if (count($categoryids) === 1 && $categoryids[0] > 0) {
+        return grade_category::fetch(['id' => $categoryids[0], 'courseid' => $courseid]) ?: null;
+    }
+
+    if ($items) {
+        $messages[] = ['warning', get_string('gradebooknocategory', 'randomquiz')];
+    }
+
+    return null;
 }
 
 /**
@@ -378,7 +390,7 @@ function randomquiz_require_manage_variant_quizzes(int $randomquizid): void {
  * @return array
  */
 function randomquiz_get_launchable_variants(int $randomquizid): array {
-    return array_values(array_filter(randomquiz_get_variant_details($randomquizid), function($variant): bool {
+    return array_values(array_filter(randomquiz_get_variant_details($randomquizid), function ($variant): bool {
         return (int)$variant->enabled === 1 && (int)$variant->visible === 1;
     }));
 }
@@ -434,8 +446,10 @@ function randomquiz_get_or_create_allocation_locked(stdClass $randomquiz, int $u
         'userid' => $userid,
     ]);
     if ($existing) {
-        if (in_array((int)$existing->quizcmid, $launchablecmids, true) ||
-                randomquiz_count_allocation_attempts($existing) > 0) {
+        if (
+            in_array((int)$existing->quizcmid, $launchablecmids, true) ||
+                randomquiz_count_allocation_attempts($existing) > 0
+        ) {
             return $existing;
         }
         $DB->delete_records('randomquiz_allocations', ['id' => $existing->id]);
@@ -572,34 +586,9 @@ function randomquiz_reset_allocation_if_unattempted(int $randomquizid, int $allo
 function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int $quizcmid): string {
     global $DB;
 
-    $validcmids = randomquiz_get_variant_cmids((int)$randomquiz->id);
-    if (!in_array($quizcmid, $validcmids, true)) {
-        throw new moodle_exception('invalidcoursemodule');
-    }
-
-    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*');
-    if (!$user || !empty($user->suspended)) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
-
-    $coursecontext = \context_course::instance($randomquiz->course);
-    if (!is_enrolled($coursecontext, $user, '', true)) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
-
-    $quizcm = get_coursemodule_from_id('quiz', $quizcmid, 0, false, MUST_EXIST);
-    if ((int)$quizcm->course !== (int)$randomquiz->course || !(int)$quizcm->visible ||
-            !has_capability('mod/quiz:attempt', \context_module::instance($quizcmid), $userid)) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
-
-    $existing = $DB->get_record('randomquiz_allocations', [
-        'randomquizid' => $randomquiz->id,
-        'userid' => $userid,
-    ]);
-    if ($existing && randomquiz_count_allocation_attempts($existing) > 0) {
-        throw new moodle_exception('manualallocationblocked', 'randomquiz');
-    }
+    $user = randomquiz_require_manual_allocation_user($randomquiz, $userid);
+    randomquiz_require_manual_allocation_quiz($randomquiz, $userid, $quizcmid);
+    $existing = randomquiz_get_changeable_allocation($randomquiz, $userid);
 
     $previousquizcmid = $existing ? (int)$existing->quizcmid : 0;
     $now = time();
@@ -632,16 +621,90 @@ function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int
 }
 
 /**
+ * Require an active enrolled user for manual allocation.
+ *
+ * @param stdClass $randomquiz
+ * @param int $userid
+ * @return stdClass
+ * @throws moodle_exception
+ */
+function randomquiz_require_manual_allocation_user(stdClass $randomquiz, int $userid): stdClass {
+    global $DB;
+
+    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*');
+    if (!$user || !empty($user->suspended)) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+
+    $coursecontext = \context_course::instance($randomquiz->course);
+    if (!is_enrolled($coursecontext, $user, '', true)) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+
+    return $user;
+}
+
+/**
+ * Require a quiz variant that the selected user can attempt.
+ *
+ * @param stdClass $randomquiz
+ * @param int $userid
+ * @param int $quizcmid
+ * @return void
+ * @throws moodle_exception
+ */
+function randomquiz_require_manual_allocation_quiz(stdClass $randomquiz, int $userid, int $quizcmid): void {
+    $validcmids = randomquiz_get_variant_cmids((int)$randomquiz->id);
+    if (!in_array($quizcmid, $validcmids, true)) {
+        throw new moodle_exception('invalidcoursemodule');
+    }
+
+    $quizcm = get_coursemodule_from_id('quiz', $quizcmid, 0, false, MUST_EXIST);
+    if (
+        (int)$quizcm->course !== (int)$randomquiz->course || !(int)$quizcm->visible ||
+            !has_capability('mod/quiz:attempt', \context_module::instance($quizcmid), $userid)
+    ) {
+        throw new moodle_exception('invalidallocationuser', 'randomquiz');
+    }
+}
+
+/**
+ * Return an existing manual allocation only when it can still be changed.
+ *
+ * @param stdClass $randomquiz
+ * @param int $userid
+ * @return stdClass|null
+ * @throws moodle_exception
+ */
+function randomquiz_get_changeable_allocation(stdClass $randomquiz, int $userid): ?stdClass {
+    global $DB;
+
+    $existing = $DB->get_record('randomquiz_allocations', [
+        'randomquizid' => $randomquiz->id,
+        'userid' => $userid,
+    ]);
+    if ($existing && randomquiz_count_allocation_attempts($existing) > 0) {
+        throw new moodle_exception('manualallocationblocked', 'randomquiz');
+    }
+
+    return $existing ?: null;
+}
+
+/**
  * Get enrolled users who can be manually allocated.
  *
  * @param stdClass $course
- * @param context_module $context
  * @return array userid => fullname
  */
-function randomquiz_get_allocatable_user_options(stdClass $course, context_module $context): array {
+function randomquiz_get_allocatable_user_options(stdClass $course): array {
     $coursecontext = \context_course::instance($course->id);
-    $users = get_enrolled_users($coursecontext, 'mod/quiz:attempt', 0, 'u.id, u.firstname, u.lastname',
-        'u.lastname, u.firstname');
+    $users = get_enrolled_users(
+        $coursecontext,
+        'mod/quiz:attempt',
+        0,
+        'u.id, u.firstname, u.lastname',
+        'u.lastname, u.firstname'
+    );
     if (!$users) {
         $users = get_enrolled_users($coursecontext, '', 0, 'u.id, u.firstname, u.lastname', 'u.lastname, u.firstname');
     }

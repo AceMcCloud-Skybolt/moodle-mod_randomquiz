@@ -46,7 +46,12 @@ if (!$instances) {
 $table = new html_table();
 $table->head = [get_string('name')];
 foreach ($instances as $instance) {
-    $table->data[] = [html_writer::link(new moodle_url('/mod/randomquiz/view.php', ['id' => $instance->coursemodule]), format_string($instance->name))];
+    $table->data[] = [
+        html_writer::link(
+            new moodle_url('/mod/randomquiz/view.php', ['id' => $instance->coursemodule]),
+            format_string($instance->name)
+        ),
+    ];
 }
 
 echo html_writer::table($table);
