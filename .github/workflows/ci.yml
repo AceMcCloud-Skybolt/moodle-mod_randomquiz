@@ -1,0 +1,79 @@
+name: Moodle Plugin CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin-ci:
+    name: Moodle 5.1 / PHP 8.2
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_DATABASE: moodle
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      MOODLE_BRANCH: MOODLE_501_STABLE
+      MOODLE_DB: moodle
+      MOODLE_DB_USER: root
+      MOODLE_DB_PASS: root
+
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, dom, fileinfo, gd, intl, mbstring, mysqli, soap, sodium, xml, xmlreader, zip
+          coverage: none
+
+      - name: Install moodle-plugin-ci
+        run: composer create-project --no-interaction --prefer-dist moodlehq/moodle-plugin-ci moodle-plugin-ci ^4
+
+      - name: Install Moodle test site
+        run: >
+          moodle-plugin-ci/bin/moodle-plugin-ci install
+          --moodle="${GITHUB_WORKSPACE}/moodle"
+          --data="${GITHUB_WORKSPACE}/moodledata"
+          --plugin="${GITHUB_WORKSPACE}"
+          --branch="${MOODLE_BRANCH}"
+          --db-type=mariadb
+          --db-host=127.0.0.1
+          --db-name="${MOODLE_DB}"
+          --db-user="${MOODLE_DB_USER}"
+          --db-pass="${MOODLE_DB_PASS}"
+          --no-plugin-node
+
+      - name: PHP lint
+        run: moodle-plugin-ci/bin/moodle-plugin-ci phplint "${GITHUB_WORKSPACE}"
+
+      - name: Validate plugin structure
+        run: moodle-plugin-ci/bin/moodle-plugin-ci validate --moodle="${GITHUB_WORKSPACE}/moodle" "${GITHUB_WORKSPACE}"
+
+      - name: Check upgrade savepoints
+        run: moodle-plugin-ci/bin/moodle-plugin-ci savepoints "${GITHUB_WORKSPACE}"
+
+      - name: Moodle coding standard
+        run: moodle-plugin-ci/bin/moodle-plugin-ci phpcs --max-warnings=0 "${GITHUB_WORKSPACE}"
+
+      - name: PHPDoc
+        run: moodle-plugin-ci/bin/moodle-plugin-ci phpdoc --moodle="${GITHUB_WORKSPACE}/moodle" --max-warnings=0 "${GITHUB_WORKSPACE}"
+
+      - name: Mustache lint
+        run: moodle-plugin-ci/bin/moodle-plugin-ci mustache "${GITHUB_WORKSPACE}"
+
+      - name: PHPUnit
+        run: moodle-plugin-ci/bin/moodle-plugin-ci phpunit --moodle="${GITHUB_WORKSPACE}/moodle" --testdox "${GITHUB_WORKSPACE}"

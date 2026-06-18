@@ -1,5 +1,7 @@
 # Random Quiz Allocator
 
+[![Moodle Plugin CI](https://github.com/AceMcCloud-Skybolt/moodle-mod_randomquiz/actions/workflows/ci.yml/badge.svg)](https://github.com/AceMcCloud-Skybolt/moodle-mod_randomquiz/actions/workflows/ci.yml)
+
 `mod_randomquiz` is a Moodle activity module that allocates each student to one quiz from a teacher-selected pool of existing Moodle quiz activities.
 
 The plugin is designed for situations where staff need to randomise whole quiz variants rather than individual questions from a question bank. Each variant remains a normal Moodle quiz, so Moodle's existing quiz attempt handling, navigation, autosave, timing, submission, grading and review behaviour are preserved.
@@ -25,21 +27,21 @@ The plugin is designed for situations where staff need to randomise whole quiz v
 
 ## Screenshots
 
-![Teacher dashboard full page](docs/screenshots/01-teacher-dashboard-full-page.png)
+![Staff dashboard overview](docs/screenshots/01-staff-dashboard-overview.png)
 
-![Staff action panel](docs/screenshots/02-staff-action-panel.png)
+![Staff readiness actions](docs/screenshots/02-staff-readiness-actions.png)
 
-![Gradebook helper](docs/screenshots/03-gradebook-helper-detail.png)
+![Staff gradebook and variants](docs/screenshots/03-staff-gradebook-variants.png)
 
-![Variant readiness detail](docs/screenshots/04-variant-readiness-detail.png)
+![Staff allocations and manual allocation](docs/screenshots/04-staff-allocations-manual.png)
 
-![Allocation report](docs/screenshots/05-allocation-report-detail.png)
+![Staff settings basics](docs/screenshots/05-staff-settings-basics.png)
 
-![Manual allocation tools](docs/screenshots/06-manual-allocation-tools.png)
+![Staff settings variant selection](docs/screenshots/06-staff-settings-variant-selection.png)
 
-![Teacher settings variant selector](docs/screenshots/07-teacher-settings-variant-selector.png)
+![Student launch page](docs/screenshots/07-student-launch-page.png)
 
-![Student launch screen](docs/screenshots/08-student-launch-screen-full-page.png)
+![Student quiz handoff](docs/screenshots/08-student-quiz-handoff.png)
 
 ## Product Brief
 
@@ -82,8 +84,12 @@ The plugin declares `FEATURE_MOD_PURPOSE` as Assessment and, on Moodle versions 
 - Privacy support exports and deletes allocation data, but should be reviewed before production release.
 - Mismatch labels cover the main quiz settings only.
 - Manual allocation uses a simple enrolled-user selector; larger sites may want autocomplete/search before production release.
-- There are no automated tests yet.
+- The current PHPUnit suite covers allocation creation, persistence, random/balanced allocation, hidden attempted allocation handling, launch events, reset guards and manual allocation guards.
 
 ## Development Status
 
 Alpha / local testing.
+
+## Developer Checks
+
+The repository includes a GitHub Actions workflow for Moodle 5.1 / PHP 8.2 using `moodle-plugin-ci`. It runs PHP linting, plugin validation, upgrade savepoint checks, Moodle coding standard checks, PHPDoc checks, Mustache linting and PHPUnit.
