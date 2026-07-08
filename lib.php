@@ -33,10 +33,6 @@ require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
  * @return mixed
  */
 function randomquiz_supports($feature) {
-    if (defined('FEATURE_MOD_OTHERPURPOSE') && $feature === FEATURE_MOD_OTHERPURPOSE) {
-        return MOD_PURPOSE_ADMINISTRATION;
-    }
-
     switch ($feature) {
         case FEATURE_MOD_ARCHETYPE:
             return MOD_ARCHETYPE_OTHER;
@@ -66,7 +62,8 @@ function randomquiz_add_instance($data, $mform = null) {
     global $DB;
 
     unset($mform);
-    $data->timemodified = time();
+    $data->timecreated = time();
+    $data->timemodified = $data->timecreated;
     $data->allocationmode = $data->allocationmode ?? RANDOMQUIZ_ALLOC_BALANCED;
     $data->id = $DB->insert_record('randomquiz', $data);
     randomquiz_save_variants((int)$data->id, $data->variantcmids ?? []);

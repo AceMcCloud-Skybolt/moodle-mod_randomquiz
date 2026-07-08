@@ -17,10 +17,23 @@
 /**
  * Local library for the random quiz allocator activity.
  *
+ * Allocation and gradebook logic lives in \mod_randomquiz\allocation_manager and
+ * \mod_randomquiz\grade_manager; the randomquiz_* functions below delegate to them.
+ *
  * @package    mod_randomquiz
  * @copyright  2026 Murdoch University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/gradelib.php');
+require_once($CFG->libdir . '/grade/grade_category.php');
+require_once($CFG->libdir . '/grade/grade_item.php');
+require_once($CFG->dirroot . '/mod/quiz/lib.php');
+
+use mod_randomquiz\allocation_manager;
+use mod_randomquiz\grade_manager;
 
 define('RANDOMQUIZ_ALLOC_RANDOM', 'random');
 define('RANDOMQUIZ_ALLOC_BALANCED', 'balanced');
@@ -147,6 +160,7 @@ function randomquiz_get_variant_details(int $randomquizid): array {
                    rv.enabled,
                    cm.visible,
                    cm.visibleoncoursepage,
+                   cm.course AS quizcourse,
                    q.id AS quizid,
                    q.name AS quizname,
                    q.timeopen,
@@ -178,26 +192,7 @@ function randomquiz_get_variant_details(int $randomquizid): array {
  * @return array
  */
 function randomquiz_get_variant_grade_items(int $randomquizid, int $courseid): array {
-    global $CFG;
-
-    require_once($CFG->libdir . '/gradelib.php');
-    require_once($CFG->libdir . '/grade/grade_item.php');
-
-    $items = [];
-    foreach (randomquiz_get_variant_details($randomquizid) as $variant) {
-        $item = grade_item::fetch([
-            'courseid' => $courseid,
-            'itemtype' => 'mod',
-            'itemmodule' => 'quiz',
-            'iteminstance' => $variant->quizid,
-            'outcomeid' => null,
-        ]);
-        if ($item) {
-            $items[$variant->quizcmid] = $item;
-        }
-    }
-
-    return $items;
+    return grade_manager::get_variant_grade_items($randomquizid, $courseid);
 }
 
 /**
@@ -208,35 +203,7 @@ function randomquiz_get_variant_grade_items(int $randomquizid, int $courseid): a
  * @return array
  */
 function randomquiz_get_gradebook_status(stdClass $randomquiz, int $courseid): array {
-    global $CFG;
-
-    require_once($CFG->libdir . '/gradelib.php');
-    require_once($CFG->libdir . '/grade/grade_category.php');
-
-    $variants = randomquiz_get_variant_details((int)$randomquiz->id);
-    $items = randomquiz_get_variant_grade_items((int)$randomquiz->id, $courseid);
-    $messages = [];
-
-    if (count($items) !== count($variants)) {
-        $messages[] = ['error', get_string('gradebookmissingitems', 'randomquiz')];
-    }
-
-    $category = randomquiz_get_common_grade_category($items, $courseid, $messages);
-    if ($category && (int)$category->aggregation !== GRADE_AGGREGATE_MAX) {
-        $messages[] = ['warning', get_string('gradebookwrongaggregation', 'randomquiz')];
-    }
-
-    if (!$messages && $category) {
-        $messages[] = ['ok', get_string('gradebookready', 'randomquiz') . ': ' . format_string($category->fullname)];
-    }
-
-    return [
-        'ready' => $category && count($items) === count($variants) && (int)$category->aggregation === GRADE_AGGREGATE_MAX,
-        'category' => $category,
-        'itemcount' => count($items),
-        'variantcount' => count($variants),
-        'messages' => $messages,
-    ];
+    return grade_manager::get_gradebook_status($randomquiz, $courseid);
 }
 
 /**
@@ -248,16 +215,7 @@ function randomquiz_get_gradebook_status(stdClass $randomquiz, int $courseid): a
  * @return grade_category|null
  */
 function randomquiz_get_common_grade_category(array $items, int $courseid, array &$messages): ?grade_category {
-    $categoryids = array_values(array_unique(array_map(fn($item) => (int)$item->categoryid, $items)));
-    if (count($categoryids) === 1 && $categoryids[0] > 0) {
-        return grade_category::fetch(['id' => $categoryids[0], 'courseid' => $courseid]) ?: null;
-    }
-
-    if ($items) {
-        $messages[] = ['warning', get_string('gradebooknocategory', 'randomquiz')];
-    }
-
-    return null;
+    return grade_manager::get_common_grade_category($items, $courseid, $messages);
 }
 
 /**
@@ -268,40 +226,7 @@ function randomquiz_get_common_grade_category(array $items, int $courseid, array
  * @return array
  */
 function randomquiz_setup_gradebook_category(stdClass $randomquiz, int $courseid): array {
-    global $CFG;
-
-    require_once($CFG->libdir . '/gradelib.php');
-    require_once($CFG->libdir . '/grade/grade_category.php');
-    require_once($CFG->libdir . '/grade/grade_item.php');
-
-    $items = randomquiz_get_variant_grade_items((int)$randomquiz->id, $courseid);
-    $categoryname = format_string($randomquiz->name);
-    $category = grade_category::fetch(['courseid' => $courseid, 'fullname' => $categoryname]);
-
-    if (!$category) {
-        $category = new grade_category([
-            'courseid' => $courseid,
-            'fullname' => $categoryname,
-        ], false);
-        $category->apply_default_settings();
-        $category->aggregation = GRADE_AGGREGATE_MAX;
-        $category->insert('mod/randomquiz');
-    } else if ((int)$category->aggregation !== GRADE_AGGREGATE_MAX) {
-        $category->aggregation = GRADE_AGGREGATE_MAX;
-        $category->update('mod/randomquiz');
-    }
-
-    foreach ($items as $item) {
-        $item->set_parent($category->id);
-    }
-
-    grade_force_full_regrading($courseid);
-    grade_regrade_final_grades($courseid);
-
-    return [
-        'category' => format_string($category->fullname),
-        'count' => count($items),
-    ];
+    return grade_manager::setup_gradebook_category($randomquiz, $courseid);
 }
 
 /**
@@ -311,45 +236,7 @@ function randomquiz_setup_gradebook_category(stdClass $randomquiz, int $courseid
  * @return array source quiz name and number of updated variants
  */
 function randomquiz_match_settings_from_first_variant(int $randomquizid): array {
-    global $DB, $CFG;
-
-    require_once($CFG->dirroot . '/mod/quiz/lib.php');
-    randomquiz_require_manage_variant_quizzes($randomquizid);
-
-    $variants = array_values(randomquiz_get_variant_details($randomquizid));
-    if (count($variants) < 2) {
-        return ['source' => '', 'count' => 0];
-    }
-
-    $sourcevariant = array_shift($variants);
-    $sourcequiz = $DB->get_record('quiz', ['id' => $sourcevariant->quizid], '*', MUST_EXIST);
-
-    $fields = randomquiz_syncable_quiz_fields();
-    $transaction = $DB->start_delegated_transaction();
-    $count = 0;
-
-    foreach ($variants as $variant) {
-        $quiz = $DB->get_record('quiz', ['id' => $variant->quizid], '*', MUST_EXIST);
-        foreach ($fields as $field) {
-            if (property_exists($sourcequiz, $field) && property_exists($quiz, $field)) {
-                $quiz->{$field} = $sourcequiz->{$field};
-            }
-        }
-
-        // Keep each variant's content and question marks intact, but align the gradebook maximum.
-        $quiz->grade = $sourcequiz->grade;
-        $quiz->timemodified = time();
-        $quiz->coursemodule = $variant->quizcmid;
-        $DB->update_record('quiz', $quiz);
-
-        quiz_update_events($quiz);
-        quiz_grade_item_update($quiz);
-        $count++;
-    }
-
-    $transaction->allow_commit();
-
-    return ['source' => format_string($sourcequiz->name), 'count' => $count];
+    return grade_manager::match_settings_from_first_variant($randomquizid);
 }
 
 /**
@@ -381,18 +268,14 @@ function randomquiz_require_manage_variant_quizzes(int $randomquizid): void {
 }
 
 /**
- * Get variants that are enabled and launchable by students.
+ * Get variants that are enabled and launchable, optionally for a specific student.
  *
- * Variants may be hidden from the course page, but they must not be fully hidden
- * from students or the redirect into Moodle Quiz will fail.
- *
- * @param int $randomquizid
+ * @param stdClass $randomquiz
+ * @param int $userid 0 to skip per-user availability checks
  * @return array
  */
-function randomquiz_get_launchable_variants(int $randomquizid): array {
-    return array_values(array_filter(randomquiz_get_variant_details($randomquizid), function ($variant): bool {
-        return (int)$variant->enabled === 1 && (int)$variant->visible === 1;
-    }));
+function randomquiz_get_launchable_variants(stdClass $randomquiz, int $userid = 0): array {
+    return allocation_manager::get_launchable_variants($randomquiz, $userid);
 }
 
 /**
@@ -414,18 +297,7 @@ function randomquiz_get_module_context(int $randomquizid): context_module {
  * @return stdClass
  */
 function randomquiz_get_or_create_allocation(stdClass $randomquiz, int $userid): stdClass {
-    $lockfactory = \core\lock\lock_config::get_lock_factory('mod_randomquiz_allocation');
-    $allocationlock = $lockfactory->get_lock('randomquiz:' . (int)$randomquiz->id, 10, MINSECS);
-
-    if (!$allocationlock) {
-        throw new moodle_exception('allocationlocktimeout', 'randomquiz');
-    }
-
-    try {
-        return randomquiz_get_or_create_allocation_locked($randomquiz, $userid);
-    } finally {
-        $allocationlock->release();
-    }
+    return allocation_manager::get_or_create_allocation($randomquiz, $userid);
 }
 
 /**
@@ -436,49 +308,7 @@ function randomquiz_get_or_create_allocation(stdClass $randomquiz, int $userid):
  * @return stdClass
  */
 function randomquiz_get_or_create_allocation_locked(stdClass $randomquiz, int $userid): stdClass {
-    global $DB;
-
-    $variants = randomquiz_get_launchable_variants((int)$randomquiz->id);
-    $launchablecmids = array_map(fn($variant) => (int)$variant->quizcmid, $variants);
-
-    $existing = $DB->get_record('randomquiz_allocations', [
-        'randomquizid' => $randomquiz->id,
-        'userid' => $userid,
-    ]);
-    if ($existing) {
-        if (
-            in_array((int)$existing->quizcmid, $launchablecmids, true) ||
-                randomquiz_count_allocation_attempts($existing) > 0
-        ) {
-            return $existing;
-        }
-        $DB->delete_records('randomquiz_allocations', ['id' => $existing->id]);
-    }
-
-    if (!$variants) {
-        throw new moodle_exception('nolaunchablevariants', 'randomquiz');
-    }
-
-    $chosen = randomquiz_choose_variant($randomquiz, $variants);
-    $allocation = (object) [
-        'randomquizid' => $randomquiz->id,
-        'userid' => $userid,
-        'quizcmid' => $chosen->quizcmid,
-        'timeallocated' => time(),
-    ];
-    $allocation->id = $DB->insert_record('randomquiz_allocations', $allocation);
-
-    \mod_randomquiz\event\allocation_created::create([
-        'objectid' => $allocation->id,
-        'context' => randomquiz_get_module_context((int)$randomquiz->id),
-        'relateduserid' => $userid,
-        'other' => [
-            'randomquizid' => (int)$randomquiz->id,
-            'quizcmid' => (int)$allocation->quizcmid,
-        ],
-    ])->trigger();
-
-    return $allocation;
+    return allocation_manager::get_or_create_allocation_locked($randomquiz, $userid);
 }
 
 /**
@@ -489,12 +319,7 @@ function randomquiz_get_or_create_allocation_locked(stdClass $randomquiz, int $u
  * @return bool
  */
 function randomquiz_allocation_is_launchable(stdClass $allocation, int $userid): bool {
-    $cm = get_coursemodule_from_id('quiz', (int)$allocation->quizcmid, 0, false, IGNORE_MISSING);
-    if (!$cm || !(int)$cm->visible) {
-        return false;
-    }
-
-    return has_capability('mod/quiz:attempt', context_module::instance($cm->id), $userid);
+    return allocation_manager::allocation_is_launchable($allocation, $userid);
 }
 
 /**
@@ -523,18 +348,17 @@ function randomquiz_trigger_assigned_quiz_launched(stdClass $randomquiz, stdClas
  * @return int
  */
 function randomquiz_count_allocation_attempts(stdClass $allocation): int {
-    global $DB;
+    return allocation_manager::count_allocation_attempts($allocation);
+}
 
-    $cm = get_coursemodule_from_id('quiz', $allocation->quizcmid, 0, false, IGNORE_MISSING);
-    if (!$cm) {
-        return 0;
-    }
-
-    return (int)$DB->count_records('quiz_attempts', [
-        'quiz' => $cm->instance,
-        'userid' => $allocation->userid,
-        'preview' => 0,
-    ]);
+/**
+ * Preload non-preview attempt counts for every allocation of an allocator.
+ *
+ * @param int $randomquizid
+ * @return array allocationid => attempt count (allocations without attempts are omitted)
+ */
+function randomquiz_get_allocation_attempt_counts(int $randomquizid): array {
+    return allocation_manager::get_allocation_attempt_counts($randomquizid);
 }
 
 /**
@@ -545,34 +369,7 @@ function randomquiz_count_allocation_attempts(stdClass $allocation): int {
  * @return string Reset user's full name.
  */
 function randomquiz_reset_allocation_if_unattempted(int $randomquizid, int $allocationid): string {
-    global $DB;
-
-    $allocation = $DB->get_record('randomquiz_allocations', [
-        'id' => $allocationid,
-        'randomquizid' => $randomquizid,
-    ]);
-    if (!$allocation) {
-        throw new moodle_exception('allocationnotfound', 'randomquiz');
-    }
-
-    if (randomquiz_count_allocation_attempts($allocation) > 0) {
-        throw new moodle_exception('allocationresetblocked', 'randomquiz');
-    }
-
-    $user = $DB->get_record('user', ['id' => $allocation->userid], '*', MUST_EXIST);
-    $DB->delete_records('randomquiz_allocations', ['id' => $allocation->id]);
-
-    \mod_randomquiz\event\allocation_reset::create([
-        'objectid' => (int)$allocation->id,
-        'context' => randomquiz_get_module_context($randomquizid),
-        'relateduserid' => (int)$allocation->userid,
-        'other' => [
-            'randomquizid' => $randomquizid,
-            'quizcmid' => (int)$allocation->quizcmid,
-        ],
-    ])->trigger();
-
-    return fullname($user);
+    return allocation_manager::reset_allocation_if_unattempted($randomquizid, $allocationid);
 }
 
 /**
@@ -584,40 +381,7 @@ function randomquiz_reset_allocation_if_unattempted(int $randomquizid, int $allo
  * @return string Updated user's full name.
  */
 function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int $quizcmid): string {
-    global $DB;
-
-    $user = randomquiz_require_manual_allocation_user($randomquiz, $userid);
-    randomquiz_require_manual_allocation_quiz($randomquiz, $userid, $quizcmid);
-    $existing = randomquiz_get_changeable_allocation($randomquiz, $userid);
-
-    $previousquizcmid = $existing ? (int)$existing->quizcmid : 0;
-    $now = time();
-    if ($existing) {
-        $existing->quizcmid = $quizcmid;
-        $existing->timeallocated = $now;
-        $DB->update_record('randomquiz_allocations', $existing);
-        $allocationid = (int)$existing->id;
-    } else {
-        $allocationid = $DB->insert_record('randomquiz_allocations', (object) [
-            'randomquizid' => $randomquiz->id,
-            'userid' => $userid,
-            'quizcmid' => $quizcmid,
-            'timeallocated' => $now,
-        ]);
-    }
-
-    \mod_randomquiz\event\manual_allocation_updated::create([
-        'objectid' => $allocationid,
-        'context' => randomquiz_get_module_context((int)$randomquiz->id),
-        'relateduserid' => $userid,
-        'other' => [
-            'randomquizid' => (int)$randomquiz->id,
-            'quizcmid' => $quizcmid,
-            'previousquizcmid' => $previousquizcmid,
-        ],
-    ])->trigger();
-
-    return fullname($user);
+    return allocation_manager::set_manual_allocation($randomquiz, $userid, $quizcmid);
 }
 
 /**
@@ -629,19 +393,7 @@ function randomquiz_set_manual_allocation(stdClass $randomquiz, int $userid, int
  * @throws moodle_exception
  */
 function randomquiz_require_manual_allocation_user(stdClass $randomquiz, int $userid): stdClass {
-    global $DB;
-
-    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*');
-    if (!$user || !empty($user->suspended)) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
-
-    $coursecontext = \context_course::instance($randomquiz->course);
-    if (!is_enrolled($coursecontext, $user, '', true)) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
-
-    return $user;
+    return allocation_manager::require_manual_allocation_user($randomquiz, $userid);
 }
 
 /**
@@ -654,18 +406,7 @@ function randomquiz_require_manual_allocation_user(stdClass $randomquiz, int $us
  * @throws moodle_exception
  */
 function randomquiz_require_manual_allocation_quiz(stdClass $randomquiz, int $userid, int $quizcmid): void {
-    $validcmids = randomquiz_get_variant_cmids((int)$randomquiz->id);
-    if (!in_array($quizcmid, $validcmids, true)) {
-        throw new moodle_exception('invalidcoursemodule');
-    }
-
-    $quizcm = get_coursemodule_from_id('quiz', $quizcmid, 0, false, MUST_EXIST);
-    if (
-        (int)$quizcm->course !== (int)$randomquiz->course || !(int)$quizcm->visible ||
-            !has_capability('mod/quiz:attempt', \context_module::instance($quizcmid), $userid)
-    ) {
-        throw new moodle_exception('invalidallocationuser', 'randomquiz');
-    }
+    allocation_manager::require_manual_allocation_quiz($randomquiz, $userid, $quizcmid);
 }
 
 /**
@@ -677,17 +418,7 @@ function randomquiz_require_manual_allocation_quiz(stdClass $randomquiz, int $us
  * @throws moodle_exception
  */
 function randomquiz_get_changeable_allocation(stdClass $randomquiz, int $userid): ?stdClass {
-    global $DB;
-
-    $existing = $DB->get_record('randomquiz_allocations', [
-        'randomquizid' => $randomquiz->id,
-        'userid' => $userid,
-    ]);
-    if ($existing && randomquiz_count_allocation_attempts($existing) > 0) {
-        throw new moodle_exception('manualallocationblocked', 'randomquiz');
-    }
-
-    return $existing ?: null;
+    return allocation_manager::get_changeable_allocation($randomquiz, $userid);
 }
 
 /**
@@ -697,24 +428,7 @@ function randomquiz_get_changeable_allocation(stdClass $randomquiz, int $userid)
  * @return array userid => fullname
  */
 function randomquiz_get_allocatable_user_options(stdClass $course): array {
-    $coursecontext = \context_course::instance($course->id);
-    $users = get_enrolled_users(
-        $coursecontext,
-        'mod/quiz:attempt',
-        0,
-        'u.id, u.firstname, u.lastname',
-        'u.lastname, u.firstname'
-    );
-    if (!$users) {
-        $users = get_enrolled_users($coursecontext, '', 0, 'u.id, u.firstname, u.lastname', 'u.lastname, u.firstname');
-    }
-
-    $options = [];
-    foreach ($users as $user) {
-        $options[(int)$user->id] = fullname($user);
-    }
-
-    return $options;
+    return allocation_manager::get_allocatable_user_options($course);
 }
 
 /**
@@ -725,36 +439,7 @@ function randomquiz_get_allocatable_user_options(stdClass $course): array {
  * @return stdClass
  */
 function randomquiz_choose_variant(stdClass $randomquiz, array $variants): stdClass {
-    global $DB;
-
-    if (($randomquiz->allocationmode ?? RANDOMQUIZ_ALLOC_BALANCED) !== RANDOMQUIZ_ALLOC_BALANCED) {
-        return $variants[random_int(0, count($variants) - 1)];
-    }
-
-    [$insql, $params] = $DB->get_in_or_equal(array_map(fn($variant) => (int)$variant->quizcmid, $variants), SQL_PARAMS_NAMED);
-    $params['randomquizid'] = $randomquiz->id;
-    $counts = $DB->get_records_sql_menu(
-        "SELECT quizcmid, COUNT(1)
-           FROM {randomquiz_allocations}
-          WHERE randomquizid = :randomquizid
-            AND quizcmid {$insql}
-       GROUP BY quizcmid",
-        $params
-    );
-
-    $lowest = null;
-    $candidates = [];
-    foreach ($variants as $variant) {
-        $count = (int)($counts[$variant->quizcmid] ?? 0);
-        if ($lowest === null || $count < $lowest) {
-            $lowest = $count;
-            $candidates = [$variant];
-        } else if ($count === $lowest) {
-            $candidates[] = $variant;
-        }
-    }
-
-    return $candidates[random_int(0, count($candidates) - 1)];
+    return allocation_manager::choose_variant($randomquiz, $variants);
 }
 
 /**
@@ -764,24 +449,7 @@ function randomquiz_choose_variant(stdClass $randomquiz, array $variants): stdCl
  * @return array
  */
 function randomquiz_get_allocations(int $randomquizid): array {
-    global $DB;
-
-    $fields = \core_user\fields::for_name()->with_identity(null, false)->get_sql('u', false, '', '', false)->selects;
-    $sql = "SELECT a.id,
-                   a.userid,
-                   a.quizcmid,
-                   a.timeallocated,
-                   {$fields},
-                   q.id AS quizid,
-                   q.name AS quizname
-              FROM {randomquiz_allocations} a
-              JOIN {user} u ON u.id = a.userid
-              JOIN {course_modules} cm ON cm.id = a.quizcmid
-              JOIN {quiz} q ON q.id = cm.instance
-             WHERE a.randomquizid = :randomquizid
-          ORDER BY a.timeallocated DESC, a.id DESC";
-
-    return $DB->get_records_sql($sql, ['randomquizid' => $randomquizid]);
+    return allocation_manager::get_allocations($randomquizid);
 }
 
 /**

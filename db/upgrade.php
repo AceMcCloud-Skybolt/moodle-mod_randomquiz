@@ -15,21 +15,34 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version metadata for the random quiz allocator activity.
+ * Upgrade steps for the random quiz allocator activity.
  *
  * @package    mod_randomquiz
  * @copyright  2026 Murdoch University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
+/**
+ * Execute mod_randomquiz upgrade steps between the current and new version.
+ *
+ * @param int $oldversion
+ * @return bool
+ */
+function xmldb_randomquiz_upgrade($oldversion) {
+    global $DB;
 
-$plugin->component = 'mod_randomquiz';
-$plugin->version = 2026070800;
-$plugin->requires = 2024100700;
-$plugin->supported = [405, 501];
-$plugin->dependencies = [
-    'mod_quiz' => 2024100700,
-];
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.4';
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2026070800) {
+        $table = new xmldb_table('randomquiz');
+        $field = new xmldb_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'allocationmode');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026070800, 'randomquiz');
+    }
+
+    return true;
+}

@@ -116,7 +116,7 @@ class provider implements
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
-        if (empty($contextlist->count())) {
+        if (!$contextlist->count()) {
             return;
         }
 
@@ -188,7 +188,7 @@ class provider implements
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
 
-        if (empty($contextlist->count())) {
+        if (!$contextlist->count()) {
             return;
         }
 

@@ -51,6 +51,15 @@ $PAGE->set_context($context);
 $canmanage = has_capability('mod/randomquiz:manage', $context);
 $action = optional_param('action', '', PARAM_ALPHA);
 
+if ($action === '') {
+    \mod_randomquiz\event\course_module_viewed::create([
+        'objectid' => (int)$randomquiz->id,
+        'context' => $context,
+    ])->trigger();
+    $completion = new completion_info($course);
+    $completion->set_module_viewed($cm);
+}
+
 if (!$canmanage) {
     if ($action === 'startquiz') {
         require_sesskey();
@@ -137,7 +146,16 @@ if ($action === 'syncsettings') {
     require_sesskey();
     require_capability('mod/randomquiz:manage', $context);
     $allocationid = required_param('allocationid', PARAM_INT);
-    $username = randomquiz_reset_allocation_if_unattempted((int)$randomquiz->id, $allocationid);
+    try {
+        $username = randomquiz_reset_allocation_if_unattempted((int)$randomquiz->id, $allocationid);
+    } catch (moodle_exception $e) {
+        redirect(
+            $PAGE->url,
+            $e->getMessage(),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
     redirect(
         $PAGE->url,
         get_string('allocationreset', 'randomquiz', $username),
@@ -285,8 +303,9 @@ if (!$allocations) {
         get_string('actions'),
     ];
     $allocationtable->attributes['class'] = 'table table-sm table-striped';
+    $attemptcounts = randomquiz_get_allocation_attempt_counts((int)$randomquiz->id);
     foreach ($allocations as $allocation) {
-        $attemptcount = randomquiz_count_allocation_attempts($allocation);
+        $attemptcount = $attemptcounts[$allocation->id] ?? 0;
         if ($attemptcount > 0) {
             $attemptstatus = html_writer::span(get_string('attemptstarted', 'randomquiz'), 'badge rounded-pill text-bg-danger');
             $actions = html_writer::span(get_string('attemptlocked', 'randomquiz'), 'text-muted');
