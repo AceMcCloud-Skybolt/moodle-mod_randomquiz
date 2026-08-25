@@ -1,7 +1,41 @@
 {{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
     @template mod_randomquiz/student_launch_card
 
     Student entry point for a random quiz allocation.
+
+    Context variables required for this template:
+    * title - Card heading.
+    * intro - Explanation of the allocation workflow.
+    * lockedmessage - Notice that the allocation remains stable.
+    * buttonlabel - Launch button label.
+    * actionurl - Form action URL.
+    * sesskey - Moodle session key.
+
+    Example context (json):
+    {
+        "title": "Your quiz is ready.",
+        "intro": "Your quiz will be selected when you start.",
+        "lockedmessage": "Your allocation will stay the same.",
+        "buttonlabel": "Start quiz",
+        "actionurl": "https://example.test/mod/randomquiz/view.php?id=42&action=startquiz",
+        "sesskey": "example"
+    }
 }}
 <div class="container-fluid p-0">
     <div class="border rounded p-4 bg-light">
