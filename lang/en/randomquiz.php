@@ -23,6 +23,7 @@
  */
 
 $string['pluginname'] = 'Random quiz allocator';
+$string['pluginadministration'] = 'Random quiz allocator administration';
 $string['modulename'] = 'Random quiz allocator';
 $string['modulenameplural'] = 'Random quiz allocators';
 $string['randomquiz:addinstance'] = 'Add a random quiz allocator';
@@ -117,4 +118,5 @@ $string['eventassignedquizlaunched'] = 'Assigned quiz launched';
 $string['eventgradebooksetupcompleted'] = 'Gradebook setup completed';
 $string['eventmanualallocationupdated'] = 'Manual allocation updated';
 $string['eventsettingssynced'] = 'Variant quiz settings synced';
+$string['eventcoursemoduleviewed'] = 'Random quiz allocator viewed';
 $string['restoreinsufficientvariants'] = 'The restored random quiz allocator "{$a->name}" has {$a->count} linked quiz variant(s). Add at least two quiz variants before using it with students.';

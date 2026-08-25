@@ -50,6 +50,7 @@ $PAGE->set_context($context);
 
 $canmanage = has_capability('mod/randomquiz:manage', $context);
 $action = optional_param('action', '', PARAM_ALPHA);
+$renderer = $PAGE->get_renderer('mod_randomquiz');
 
 if ($action === '') {
     \mod_randomquiz\event\course_module_viewed::create([
@@ -77,19 +78,11 @@ if (!$canmanage) {
     }
 
     echo $OUTPUT->header();
-    echo html_writer::start_div('container-fluid p-0');
-    echo html_writer::start_div('border rounded p-4 bg-light');
-    echo html_writer::tag('h3', get_string('studentready', 'randomquiz'), ['class' => 'mb-3']);
-    echo html_writer::tag('p', get_string('studentreadyintro', 'randomquiz'), ['class' => 'mb-3']);
-    echo html_writer::tag('p', get_string('allocationlockedonstart', 'randomquiz'), ['class' => 'text-muted']);
     $starturl = new moodle_url('/mod/randomquiz/view.php', [
         'id' => $cm->id,
         'action' => 'startquiz',
-        'sesskey' => sesskey(),
     ]);
-    echo $OUTPUT->single_button($starturl, get_string('startquiz', 'randomquiz'), 'post', ['class' => 'mb-0']);
-    echo html_writer::end_div();
-    echo html_writer::end_div();
+    echo $renderer->student_launch_card($starturl);
     echo $OUTPUT->footer();
     exit;
 }
@@ -182,20 +175,7 @@ $variants = array_values(randomquiz_get_variant_details((int)$randomquiz->id));
 $template = $variants[0] ?? null;
 
 echo html_writer::start_div('container-fluid p-0');
-echo html_writer::start_div('p-4 mb-4 border rounded bg-light');
-echo html_writer::tag('p', get_string('pluginname', 'randomquiz'), ['class' => 'text-uppercase text-muted small mb-1']);
-echo html_writer::tag('h3', get_string('teacherdashboard', 'randomquiz'), ['class' => 'mb-2']);
-echo html_writer::tag('p', get_string('teacherdashboardintro', 'randomquiz'), ['class' => 'mb-3']);
-echo html_writer::start_div('d-flex flex-wrap gap-2');
-echo html_writer::span(
-    get_string('allocationmode:' . $randomquiz->allocationmode, 'randomquiz'),
-    'badge rounded-pill text-bg-primary'
-);
-echo html_writer::span(get_string('badgelocksonlaunch', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
-echo html_writer::span(get_string('badgeusesmoodlequizzes', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
-echo html_writer::span(get_string('badgehighestgradecategory', 'randomquiz'), 'badge rounded-pill text-bg-secondary');
-echo html_writer::end_div();
-echo html_writer::end_div();
+echo $renderer->teacher_dashboard_header($randomquiz);
 
 if (count($variants) > 1) {
     if (randomquiz_can_manage_variant_quizzes((int)$randomquiz->id)) {

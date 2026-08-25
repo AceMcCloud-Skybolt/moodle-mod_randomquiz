@@ -195,15 +195,21 @@ class grade_manager {
             return ['source' => '', 'count' => 0];
         }
 
+        $quizids = array_map(static fn($variant): int => (int)$variant->quizid, $variants);
+        $quizzes = $DB->get_records_list('quiz', 'id', $quizids);
+        if (count($quizzes) !== count($quizids)) {
+            throw new moodle_exception('invalidcoursemodule');
+        }
+
         $sourcevariant = array_shift($variants);
-        $sourcequiz = $DB->get_record('quiz', ['id' => $sourcevariant->quizid], '*', MUST_EXIST);
+        $sourcequiz = $quizzes[$sourcevariant->quizid];
 
         $fields = randomquiz_syncable_quiz_fields();
         $transaction = $DB->start_delegated_transaction();
         $count = 0;
 
         foreach ($variants as $variant) {
-            $quiz = $DB->get_record('quiz', ['id' => $variant->quizid], '*', MUST_EXIST);
+            $quiz = $quizzes[$variant->quizid];
             foreach ($fields as $field) {
                 if (property_exists($sourcequiz, $field) && property_exists($quiz, $field)) {
                     $quiz->{$field} = $sourcequiz->{$field};

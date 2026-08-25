@@ -1,0 +1,18 @@
+{{!
+    @template mod_randomquiz/teacher_dashboard_header
+
+    Introduction and status badges for the teacher dashboard.
+}}
+<div class="container-fluid p-0">
+    <div class="p-4 mb-4 border rounded bg-light">
+        <p class="text-uppercase text-muted small mb-1">{{pluginname}}</p>
+        <h3 class="mb-2">{{title}}</h3>
+        <p class="mb-3">{{intro}}</p>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge rounded-pill text-bg-primary">{{allocationmode}}</span>
+            <span class="badge rounded-pill text-bg-secondary">{{lockslabel}}</span>
+            <span class="badge rounded-pill text-bg-secondary">{{quizzeslabel}}</span>
+            <span class="badge rounded-pill text-bg-secondary">{{gradebooklabel}}</span>
+        </div>
+    </div>
+</div>

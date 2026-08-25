@@ -25,11 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_randomquiz';
-$plugin->version = 2026070800;
+$plugin->version = 2026082500;
 $plugin->requires = 2024100700;
 $plugin->supported = [405, 501];
 $plugin->dependencies = [
     'mod_quiz' => 2024100700,
 ];
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.4';
+$plugin->release = '0.1.5';
