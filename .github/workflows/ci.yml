@@ -82,7 +82,7 @@ jobs:
 
       - name: Mustache lint
         if: ${{ !cancelled() }}
-        run: moodle-plugin-ci mustache "${PLUGIN_DIR}"
+        run: moodle-plugin-ci mustache "${MOODLE_DIR}/public/mod/randomquiz"
 
       - name: PHPUnit
         if: ${{ !cancelled() }}
