@@ -1,5 +1,7 @@
 # Random Quiz Allocator
 
+Moodle 5.1 readiness: [2 October 2026 compatibility review and rollout checks](docs/moodle-5.1-review-2026-10-02.md).
+
 [![Moodle Plugin CI](https://github.com/AceMcCloud-Skybolt/moodle-mod_randomquiz/actions/workflows/ci.yml/badge.svg)](https://github.com/AceMcCloud-Skybolt/moodle-mod_randomquiz/actions/workflows/ci.yml)
 
 `mod_randomquiz` is a Moodle activity module that allocates each student to one quiz from a teacher-selected pool of existing Moodle quiz activities.
@@ -94,4 +96,4 @@ Alpha / local testing.
 
 ## Developer Checks
 
-The repository includes a GitHub Actions workflow for Moodle 5.1 / PHP 8.2 using `moodle-plugin-ci`. It runs PHP linting, plugin validation, upgrade savepoint checks, Moodle coding standard checks, PHPDoc checks, Mustache linting and PHPUnit.
+The repository includes a GitHub Actions workflow for Moodle 5.1 / PHP 8.2 and 8.3 using `moodle-plugin-ci`. It runs PHP linting, plugin validation, upgrade savepoint checks, Moodle coding standard checks, PHPDoc checks, Mustache linting and PHPUnit.

@@ -10,7 +10,7 @@ This is compatibility evidence, not production certification. The institution's 
 
 - PHP syntax, Moodle coding standard (zero warnings), PHPDoc, plugin structure and upgrade savepoint checks pass.
 - Literal language-string references were checked against the installed Moodle 5.1 string manager; no missing references remain. Dynamic identifiers need workflow testing too.
-- PHPUnit results: pending final run.
+- GitHub Actions passed all checks, including PHPUnit, on Moodle 5.1 with PHP 8.2 and 8.3 for commit `50a8d2a`: [verified run](https://github.com/AceMcCloud-Skybolt/moodle-mod_randomquiz/actions/runs/36947008724). Subsequent documentation edits do not change the tested PHP code.
 - Template lint on Windows encountered an upstream mixed-path-separator limitation; Linux GitHub Actions runs the installed-plugin template checks.
 
 ## Changes
@@ -24,4 +24,3 @@ Release: **0.1.6**, plugin version **2026100200**. No database schema change.
 ## Acceptance before rollout
 
 Test allocation/launch as students, hidden and restricted quiz variants, attempted-allocation persistence, manual allocation permissions, grade/completion propagation, reset and backup/restore. Check that invalid or cross-course variant selections produce a clear validation error. Do not reset students' allocations after attempts without evaluating the documented safeguards.
-
