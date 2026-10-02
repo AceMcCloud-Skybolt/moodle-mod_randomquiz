@@ -69,7 +69,9 @@ For Moodle 4.5-style layouts, install it at:
 
 `mod/randomquiz`
 
-The plugin declares `FEATURE_MOD_PURPOSE` as Assessment and, on Moodle versions that support it, declares Administration as a secondary activity purpose.
+The plugin declares `FEATURE_MOD_PURPOSE` as Assessment.
+
+Before installation approval, complete the [Moodle 5.1 UAT smoke-test checklist](docs/moodle-51-uat-smoke-test.md) on the upgrade environment. Record the exact Git commit and its GitHub Actions result.
 
 ## Notes
 

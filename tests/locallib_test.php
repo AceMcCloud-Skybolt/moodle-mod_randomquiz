@@ -38,6 +38,39 @@ require_once($CFG->dirroot . '/mod/randomquiz/locallib.php');
  */
 final class locallib_test extends \advanced_testcase {
     /**
+     * The allocator settings form renders quiz choices using the current core APIs.
+     */
+    public function test_settings_form_renders_quiz_variants(): void {
+        global $CFG, $COURSE, $PAGE;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        require_once($CFG->dirroot . '/course/modlib.php');
+        require_once($CFG->dirroot . '/mod/randomquiz/mod_form.php');
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $quiz = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id, 'name' => 'Review variant']);
+        $activity = $this->getDataGenerator()->create_module('randomquiz', ['course' => $course->id]);
+        $cm = get_coursemodule_from_id('randomquiz', $activity->cmid, 0, false, MUST_EXIST);
+        [$cm, $context, $module, $data, $section] = get_moduleinfo_data($cm, $course);
+        $COURSE = $course;
+        $PAGE->set_course($course);
+        $PAGE->set_context($context);
+        $PAGE->set_url('/course/modedit.php', ['update' => $cm->id]);
+        $form = new \mod_randomquiz_mod_form($data, $section->section, $cm, $course);
+        $form->set_data($data);
+        $html = $form->render();
+
+        $this->assertStringContainsString('Review variant', $html);
+        $this->assertStringContainsString('variantcmids', $html);
+        $this->assertDoesNotMatchRegularExpression('/\[\[[^\]]+\]\]/', $html);
+        $errors = $form->validation(array_merge((array)$data, [
+            'variantcmids' => [-1, -2],
+            'availabilityconditionsjson' => '',
+        ]), []);
+        $this->assertSame(get_string('invalidcoursemodule', 'error'), $errors['variantcmids']);
+    }
+
+    /**
      * Create a course, student, two quiz variants and a random quiz allocator.
      *
      * @param string $allocationmode

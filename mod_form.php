@@ -126,7 +126,7 @@ class mod_randomquiz_mod_form extends moodleform_mod {
         foreach ($variantcmids as $cmid) {
             $cm = get_coursemodule_from_id('quiz', $cmid, 0, false, IGNORE_MISSING);
             if (!$cm || (int)$cm->course !== (int)$COURSE->id) {
-                $errors['variantcmids'] = get_string('invalidcoursemodule');
+                $errors['variantcmids'] = get_string('invalidcoursemodule', 'error');
                 break;
             }
         }
