@@ -4,8 +4,13 @@ on: [push, pull_request]
 
 jobs:
   plugin-ci:
-    name: Moodle 5.1 / PHP 8.2
+    name: Moodle 5.1 / PHP ${{ matrix.php }}
     runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
 
     services:
       mariadb:
@@ -39,7 +44,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: ${{ matrix.php }}
           extensions: curl, dom, fileinfo, gd, intl, mbstring, mysqli, soap, sodium, xml, xmlreader, zip
           ini-values: max_input_vars=5000
           coverage: none
